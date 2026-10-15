@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paisaje Mágico de Sumas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background-color: #f0fdf4;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 4 / 3;
+            margin: 0 auto;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            background: #ffffff;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8">
+
+    <header class="text-center mb-6 w-full max-w-4xl relative">
+        <h1 class="text-3xl md:text-5xl font-bold text-emerald-700 tracking-wide drop-shadow-sm pt-8 sm:pt-0">🎨 Paisaje Mágico de sumas con el profesor Carlos Fernando</h1>
+        <p class="text-gray-600 mt-2 text-sm md:text-base">¡Resuelve las sumas correctamente para darle color y vida al paisaje oculto! (30 Retos)</p>
+    </header>
+
+    <main class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center bg-white p-6 md:p-8 rounded-3xl shadow-xl border border-emerald-100">
+        
+        <!-- Left Column: Canvas / Landscape -->
+        <div class="lg:col-span-7 flex flex-col items-center">
+            <div class="canvas-container border-4 border-emerald-200">
+                <canvas id="landscapeCanvas" width="800" height="600"></canvas>
+            </div>
+            <div class="w-full max-w-600 mt-4 flex items-center justify-between text-sm text-gray-600 font-semibold px-2">
+                <span id="progressText">Progreso: 0 / 30 zonas coloreadas</span>
+                <span id="percentageText" class="text-emerald-600 font-bold">0%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-3.5 mt-2 overflow-hidden border border-gray-300">
+                <div id="progressBar" class="bg-emerald-500 h-3.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Right Column: Interactive Math Panel -->
+        <div class="lg:col-span-5 flex flex-col justify-center items-center bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100 min-h-[350px]">
+            
+            <!-- Game Active Area -->
+            <div id="gameActiveArea" class="w-full flex flex-col items-center text-center">
+                <div class="inline-block bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-3">
+                    Zona de Color <span id="currentZoneIndex">1</span> de 30
+                </div>
+
+                <div class="text-4xl md:text-5xl font-black text-gray-800 my-6 tracking-wider bg-white px-6 py-4 rounded-2xl shadow-inner border border-emerald-200 w-full">
+                    <span id="num1">0</span> + <span id="num2">0</span> = ?
+                </div>
+
+                <form id="answerForm" class="w-full flex flex-col gap-4">
+                    <input type="number" id="userAnswer" autocomplete="off" placeholder="Tu respuesta..." 
+                        class="w-full px-4 py-3 text-center text-2xl font-bold rounded-xl border-2 border-emerald-300 focus:outline-none focus:border-emerald-600 transition shadow-sm bg-white text-gray-700" required>
+                    
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition transform active:scale-95 shadow-lg shadow-emerald-200 text-lg">
+                        ✨ Comprobar Suma
+                    </button>
+                </form>
+
+                <div id="feedbackMessage" class="mt-4 text-sm font-semibold h-6"></div>
+            </div>
+
+            <!-- Game Completed View (Hidden by default) -->
+            <div id="gameCompletedArea" class="hidden flex flex-col items-center text-center">
+                <div class="text-5xl mb-3">🏆🎉</div>
+                <h2 class="text-2xl font-bold text-emerald-800 mb-2">¡Increíble Trabajo!</h2>
+                <p class="text-gray-600 text-sm mb-6">Has completado todas las sumas y descubierto el hermoso paisaje colorido en todo su esplendor.</p>
+                <button onclick="restartGame()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-lg shadow-emerald-200">
+                    🔄 Jugar de Nuevo
+                </button>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="mt-8 text-center text-gray-500 text-xs">
+        Creado para estudiantes con amor por las matemáticas y el arte.
+    </footer>
+
+    <script>
+        const TOTAL_ZONES = 30;
+        let currentZone = 0;
+        let problems = [];
+        let currentProblem = null;
+        let canvas, ctx;
+
+        // Define 30 distinct landscape zones matching TOTAL_ZONES
+        const landscapeZones = [
+            { type: 'sun', color: '#facc15' },
+            { type: 'cloud', idx: 0, color: '#ffffff' },
+            { type: 'cloud', idx: 1, color: '#ffffff' },
+            { type: 'bird', color: '#1e293b' },
+            { type: 'mountain', idx: 0, color: '#64748b' },
+            { type: 'mountain', idx: 1, color: '#475569' },
+            { type: 'mountain', idx: 2, color: '#334155' },
+            { type: 'mountainSnow', color: '#f8fafc' },
+            { type: 'hill', idx: 0, color: '#4ade80' },
+            { type: 'hill', idx: 1, color: '#22c55e' },
+            { type: 'hill', idx: 2, color: '#16a34a' },
+            { type: 'river', idx: 0, color: '#38bdf8' },
+            { type: 'river', idx: 1, color: '#0284c7' },
+            { type: 'houseBase', color: '#f97316' },
+            { type: 'houseRoof', color: '#dc2626' },
+            { type: 'houseDoor', color: '#78350f' },
+            { type: 'houseWindow1', color: '#fef08a' },
+            { type: 'houseWindow2', color: '#fef08a' },
+            { type: 'chimney', color: '#b91c1c' },
+            { type: 'smoke', color: '#cbd5e1' },
+            { type: 'treeTrunk', idx: 0, color: '#854d0e' },
+            { type: 'treeLeaves', idx: 0, color: '#15803d' },
+            { type: 'treeTrunk', idx: 1, color: '#854d0e' },
+            { type: 'treeLeaves', idx: 1, color: '#166534' },
+            { type: 'bush', color: '#22c55e' },
+            { type: 'flower', idx: 0, color: '#ec4899' },
+            { type: 'flower', idx: 1, color: '#a855f7' },
+            { type: 'flower', idx: 2, color: '#f59e0b' },
+            { type: 'butterfly', color: '#3b82f6' },
+            { type: 'sunflower', color: '#eab308' }
+        ];
+
+        function generateProblems() {
+            problems = [];
+            // Use current timestamp and random offset to seed unique sums every time the page loads
+            for (let i = 0; i < TOTAL_ZONES; i++) {
+                // Mix 2-digit and 3-digit additions
+                let isThreeDigit = i >= 15; // First 15 are 2-digit, last 15 are 3-digit
+                let num1, num2;
+                
+                if (!isThreeDigit) {
+                    // Random 2-digit numbers (10 to 99)
+                    num1 = Math.floor(Math.random() * 90) + 10;
+                    num2 = Math.floor(Math.random() * 90) + 10;
+                } else {
+                    // Random 3-digit numbers (100 to 999)
+                    num1 = Math.floor(Math.random() * 900) + 100;
+                    num2 = Math.floor(Math.random() * 900) + 100;
+                }
+
+                problems.push({
+                    num1: num1,
+                    num2: num2,
+                    answer: num1 + num2
+                });
+            }
+        }
+
+        function drawLandscape() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Sky background base (Always colored or light pastel gradient)
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, 400);
+            skyGrad.addColorStop(0, '#fef08a');
+            skyGrad.addColorStop(1, '#bae6fd');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Render zones iteratively up to currentZone in color, rest in monochrome (grayscale / black & white outline style)
+            landscapeZones.forEach((zone, index) => {
+                let isColored = index < currentZone;
+                drawZoneShape(zone, isColored);
+            });
+        }
+
+        function drawZoneShape(zone, colored) {
+            ctx.save();
+            let fillColor = colored ? zone.color : '#e2e8f0';
+            let strokeColor = '#1e293b';
+            let lineWidth = 3;
+
+            ctx.fillStyle = fillColor;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            switch(zone.type) {
+                case 'sun':
+                    ctx.beginPath();
+                    ctx.arc(120, 100, 45, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Sun rays
+                    if (colored) {
+                        ctx.strokeStyle = '#eab308';
+                        ctx.lineWidth = 4;
+                    }
+                    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                        ctx.beginPath();
+                        ctx.moveTo(120 + Math.cos(a) * 55, 100 + Math.sin(a) * 55);
+                        ctx.lineTo(120 + Math.cos(a) * 70, 100 + Math.sin(a) * 70);
+                        ctx.stroke();
+                    }
+                    break;
+
+                case 'cloud':
+                    let cx = zone.idx === 0 ? 280 : 550;
+                    let cy = zone.idx === 0 ? 90 : 120;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+                    ctx.arc(cx + 20, cy - 10, 20, 0, Math.PI * 2);
+                    ctx.arc(cx + 40, cy, 22, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'bird':
+                    let bx = 380;
+                    let by = 70;
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.quadraticCurveTo(bx + 15, by - 15, bx + 30, by);
+                    ctx.quadraticCurveTo(bx + 45, by - 15, bx + 60, by);
+                    ctx.quadraticCurveTo(bx + 45, by + 5, bx + 30, by - 5);
+                    ctx.quadraticCurveTo(bx + 15, by + 5, bx, by);
+                    ctx.stroke();
+                    break;
+
+                case 'mountain':
+                    let mPoints = [
+                        [{x: 0, y: 400}, {x: 180, y: 180}, {x: 350, y: 400}],
+                        [{x: 200, y: 400}, {x: 420, y: 140}, {x: 640, y: 400}],
+                        [{x: 450, y: 400}, {x: 630, y: 220}, {x: 800, y: 400}]
+                    ];
+                    let pts = mPoints[zone.idx];
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    ctx.lineTo(pts[1].x, pts[1].y);
+                    ctx.lineTo(pts[2].x, pts[2].y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'mountainSnow':
+                    ctx.beginPath();
+                    ctx.moveTo(420, 140);
+                    ctx.lineTo(465, 200);
+                    ctx.lineTo(435, 210);
+                    ctx.lineTo(415, 190);
+                    ctx.lineTo(385, 215);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'hill':
+                    let hParams = [
+                        {x: -50, y: 420, cp1x: 150, cp1y: 280, endx: 350, endy: 420},
+                        {x: 250, y: 450, cp1x: 480, cp1y: 300, endx: 650, endy: 450},
+                        {x: 550, y: 480, cp1x: 680, cp1y: 360, endx: 850, endy: 480}
+                    ];
+                    let hp = hParams[zone.idx];
+                    ctx.beginPath();
+                    ctx.moveTo(hp.x, hp.y);
+                    ctx.quadraticCurveTo(hp.cp1x, hp.cp1y, hp.endx, hp.endy);
+                    ctx.lineTo(800, 600);
+                    ctx.lineTo(0, 600);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'river':
+                    ctx.beginPath();
+                    if (zone.idx === 0) {
+                        ctx.moveTo(420, 400);
+                        ctx.bezierCurveTo(430, 450, 400, 500, 360, 600);
+                        ctx.lineTo(450, 600);
+                        ctx.bezierCurveTo(490, 500, 520, 450, 500, 400);
+                    } else {
+                        ctx.moveTo(360, 600);
+                        ctx.bezierCurveTo(320, 700, 250, 650, 200, 600); // adjusted bottom flow
+                        ctx.lineTo(290, 600);
+                        ctx.lineTo(360, 600);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'houseBase':
+                    ctx.fillRect(520, 350, 140, 110);
+                    ctx.strokeRect(520, 350, 140, 110);
+                    break;
+
+                case 'houseRoof':
+                    ctx.beginPath();
+                    ctx.moveTo(500, 350);
+                    ctx.lineTo(590, 260);
+                    ctx.lineTo(680, 350);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'houseDoor':
+                    ctx.fillRect(575, 400, 35, 60);
+                    ctx.strokeRect(575, 400, 35, 60);
+                    break;
+
+                case 'houseWindow1':
+                    ctx.fillRect(535, 375, 30, 30);
+                    ctx.strokeRect(535, 375, 30, 30);
+                    break;
+
+                case 'houseWindow2':
+                    ctx.fillRect(615, 375, 30, 30);
+                    ctx.strokeRect(615, 375, 30, 30);
+                    break;
+
+                case 'chimney':
+                    ctx.fillRect(630, 280, 20, 40);
+                    ctx.strokeRect(630, 280, 20, 40);
+                    break;
+
+                case 'smoke':
+                    ctx.beginPath();
+                    ctx.arc(640, 255, 10, 0, Math.PI * 2);
+                    ctx.arc(650, 235, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'treeTrunk':
+                    let tx = zone.idx === 0 ? 130 : 700;
+                    ctx.fillRect(tx, 380, 25, 70);
+                    ctx.strokeRect(tx, 380, 25, 70);
+                    break;
+
+                case 'treeLeaves':
+                    let lx = zone.idx === 0 ? 142 : 712;
+                    ctx.beginPath();
+                    ctx.arc(lx, 360, 40, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'bush':
+                    let bX = 220;
+                    let bY = 440;
+                    ctx.beginPath();
+                    ctx.arc(bX, bY, 20, 0, Math.PI * 2);
+                    ctx.arc(bX + 20, bY + 5, 22, 0, Math.PI * 2);
+                    ctx.arc(bX - 15, bY + 5, 18, 0, Math.PI * 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'flower':
+                    let fx = 100 + zone.idx * 50;
+                    let fy = 470 + (zone.idx % 2) * 20;
+                    // Stem
+                    ctx.beginPath();
+                    ctx.moveTo(fx, fy + 20);
+                    ctx.lineTo(fx, fy);
+                    ctx.strokeStyle = colored ? '#15803d' : '#333';
+                    ctx.stroke();
+                    // Petals
+                    ctx.beginPath();
+                    for(let i=0; i<5; i++) {
+                        let angle = (i * 2 * Math.PI) / 5;
+                        ctx.arc(fx + Math.cos(angle)*10, fy + Math.sin(angle)*10, 8, 0, Math.PI*2);
+                    }
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'butterfly':
+                    let xd = 310, yd = 350;
+                    ctx.beginPath();
+                    ctx.ellipse(xd - 10, yd, 12, 8, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.ellipse(xd + 10, yd, 12, 8, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+
+                case 'sunflower':
+                    let sx = 670, sy = 480;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, 18, 0, Math.PI * 2);
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+                    ctx.stroke();
+                    break;
+            }
+            ctx.restore();
+        }
+
+        function updateUI() {
+            document.getElementById('currentZoneIndex').innerText = Math.min(currentZone + 1, TOTAL_ZONES);
+            document.getElementById('progressText').innerText = `Progreso: ${currentZone} / ${TOTAL_ZONES} zonas coloreadas`;
+            let percentage = Math.round((currentZone / TOTAL_ZONES) * 100);
+            document.getElementById('percentageText').innerText = `${percentage}%`;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+
+            if (currentZone >= TOTAL_ZONES) {
+                document.getElementById('gameActiveArea').classList.add('hidden');
+                document.getElementById('gameCompletedArea').classList.remove('hidden');
+            } else {
+                currentProblem = problems[currentZone];
+                document.getElementById('num1').innerText = currentProblem.num1;
+                document.getElementById('num2').innerText = currentProblem.num2;
+                document.getElementById('userAnswer').value = '';
+                document.getElementById('userAnswer').focus();
+            }
+            drawLandscape();
+        }
+
+        document.getElementById('answerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const userAns = parseInt(document.getElementById('userAnswer').value, 10);
+            const feedback = document.getElementById('feedbackMessage');
+
+            if (isNaN(userAns)) {
+                feedback.innerText = "⚠️ Por favor, ingresa un número válido.";
+                feedback.className = "mt-4 text-sm font-semibold text-amber-600";
+                return;
+            }
+
+            if (userAns === currentProblem.answer) {
+                feedback.innerText = "¡Correcto! 🎉 ¡Zona pintada!";
+                feedback.className = "mt-4 text-sm font-semibold text-emerald-600 animate-bounce";
+                currentZone++;
+                setTimeout(() => {
+                    feedback.innerText = "";
+                    updateUI();
+                }, 800);
+            } else {
+                feedback.innerText = "❌ Ups, inténtalo de nuevo.";
+                feedback.className = "mt-4 text-sm font-semibold text-rose-600";
+                document.getElementById('userAnswer').select();
+            }
+        });
+
+        function restartGame() {
+            currentZone = 0;
+            generateProblems();
+            document.getElementById('gameActiveArea').classList.remove('hidden');
+            document.getElementById('gameCompletedArea').classList.add('hidden');
+            updateUI();
+        }
+
+        // Initialize application on window load
+        window.onload = function() {
+            canvas = document.getElementById('landscapeCanvas');
+            if (canvas) {
+                ctx = canvas.getContext('2d');
+            }
+            generateProblems();
+            updateUI();
+        };
+    </script>
+</body>
+</html>
